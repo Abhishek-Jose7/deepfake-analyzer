@@ -1,5 +1,6 @@
 """
-DeepTrust API - FastAPI Backend
+DeepTrust API - FastAPI Backend with LLM Integration
+Enhanced with Llama 3.2 Vision via Groq API
 Deployable on Hugging Face Spaces
 """
 
@@ -20,8 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from pydantic import BaseModel
 
-# Import signal analyzers
-from signals.vision_signal import analyze_vision
+# Import enhanced analyzers
+from signals.enhanced_vision import analyze_vision
 from signals.audio_signal import analyze_audio
 from signals.temporal_signal import analyze_temporal
 from trust_engine.score_fusion import calculate_trust_score, generate_report
@@ -31,6 +32,14 @@ from trust_engine.educational import generate_educational_content
 from trust_engine.report_generator import generate_html_report
 from utils.video_processing import extract_frames, extract_audio
 from utils.batch_processor import BatchProcessor
+
+# Import LLM analyzer
+try:
+    from llm.groq_analyzer import groq_analyzer
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    groq_analyzer = None
 
 # Configuration
 UPLOAD_DIR = Path("uploads")
@@ -46,6 +55,10 @@ batch_processor = BatchProcessor(max_workers=3)
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     print("🚀 DeepTrust API starting...")
+    if LLM_AVAILABLE and groq_analyzer and groq_analyzer.enabled:
+        print("✅ Groq LLM integration enabled (Llama 3.2 Vision)")
+    else:
+        print("⚠️ LLM integration disabled - set GROQ_API_KEY for enhanced analysis")
     yield
     print("👋 DeepTrust API shutting down...")
     # Cleanup
@@ -57,16 +70,15 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="DeepTrust API",
-    description="Multi-signal deepfake detection with explainable AI",
-    version="2.0.0",
+    description="Multi-signal deepfake detection with Llama 3.2 Vision AI",
+    version="2.1.0",
     lifespan=lifespan
 )
 
 # CORS - Allow all origins for production deployment
-# In production, you can restrict this to your Vercel domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -81,6 +93,7 @@ class AnalysisResult(BaseModel):
     confidence: str
     reason: str
     signals: dict
+    llm_analysis: Optional[dict] = None
     quality_assessment: Optional[dict] = None
 
 
@@ -116,8 +129,17 @@ def cleanup_file(file_path: Path):
         pass
 
 
-def run_analysis(video_path: Path) -> dict:
-    """Core analysis pipeline"""
+def run_analysis(video_path: Path, include_llm: bool = True) -> dict:
+    """
+    Core analysis pipeline with optional LLM enhancement
+    
+    Args:
+        video_path: Path to video file
+        include_llm: Whether to include LLM analysis
+        
+    Returns:
+        Complete analysis results
+    """
     frames = extract_frames(str(video_path), max_frames=30)
     audio_path = extract_audio(str(video_path))
     
@@ -127,10 +149,11 @@ def run_analysis(video_path: Path) -> dict:
             "decision": "Analysis Failed",
             "confidence": "none",
             "reason": "Could not extract frames from video",
-            "signals": {}
+            "signals": {},
+            "llm_analysis": None
         }
     
-    # Run signal analysis
+    # Run enhanced signal analysis
     vision_result = analyze_vision(frames)
     audio_result = analyze_audio(audio_path) if audio_path else {"score": 0.5, "confidence": 0.0}
     temporal_result = analyze_temporal(frames)
@@ -144,19 +167,59 @@ def run_analysis(video_path: Path) -> dict:
     # Calculate trust score
     trust_score, quality_assessment = calculate_trust_score(signals)
     
-    # Generate report
+    # Generate basic report
     report = generate_report(trust_score, signals, quality_assessment)
+    
+    # LLM Analysis (if available)
+    llm_analysis = None
+    if include_llm and LLM_AVAILABLE and groq_analyzer and groq_analyzer.enabled:
+        signal_scores = {
+            "vision": vision_result.get("score", 0.5),
+            "audio": audio_result.get("score", 0.5),
+            "temporal": temporal_result.get("score", 0.5)
+        }
+        llm_analysis = groq_analyzer.analyze_frames(frames, signal_scores)
+        
+        # Adjust trust score based on LLM analysis if it has high confidence
+        if llm_analysis and llm_analysis.get("parsed"):
+            parsed = llm_analysis["parsed"]
+            llm_confidence = parsed.get("confidence", "medium")
+            llm_verdict = parsed.get("verdict", "uncertain")
+            
+            # If LLM has high confidence, weight its opinion
+            if llm_confidence == "high":
+                if llm_verdict == "authentic":
+                    trust_score = trust_score * 0.7 + 0.9 * 0.3  # Boost toward authentic
+                elif llm_verdict == "manipulated":
+                    trust_score = trust_score * 0.7 + 0.1 * 0.3  # Boost toward fake
+            
+            # Update reason with LLM insight
+            if parsed.get("reasoning"):
+                report["reason"] = parsed["reasoning"]
     
     # Cleanup audio
     if audio_path and os.path.exists(audio_path):
         os.remove(audio_path)
     
+    # Update decision based on adjusted trust score
+    if trust_score >= 0.7:
+        decision = "Likely Real"
+    elif trust_score >= 0.55:
+        decision = "Possibly Real"
+    elif trust_score >= 0.45:
+        decision = "Ambiguous"
+    elif trust_score >= 0.3:
+        decision = "Possibly Fake"
+    else:
+        decision = "Likely Fake"
+    
     return {
         "trust_score": trust_score,
-        "decision": report["decision"],
+        "decision": decision,
         "confidence": report["confidence"],
         "reason": report["reason"],
         "signals": signals,
+        "llm_analysis": llm_analysis,
         "quality_assessment": quality_assessment
     }
 
@@ -169,7 +232,9 @@ async def root():
     return {
         "status": "online",
         "service": "DeepTrust API",
-        "version": "2.0.0",
+        "version": "2.1.0",
+        "llm_enabled": LLM_AVAILABLE and groq_analyzer and groq_analyzer.enabled,
+        "llm_model": "llama-3.2-90b-vision-preview" if (LLM_AVAILABLE and groq_analyzer and groq_analyzer.enabled) else None,
         "endpoints": {
             "analyze": "/api/analyze",
             "heatmap": "/api/analyze/heatmap",
@@ -186,15 +251,25 @@ async def root():
 
 
 @app.post("/api/analyze")
-async def analyze_video(video: UploadFile = File(...), background_tasks: BackgroundTasks = None):
-    """Standard video analysis"""
+async def analyze_video(
+    video: UploadFile = File(...), 
+    background_tasks: BackgroundTasks = None,
+    use_llm: bool = True
+):
+    """
+    Standard video analysis with optional LLM enhancement
+    
+    Args:
+        video: Video file to analyze
+        use_llm: Whether to use LLM for enhanced analysis (default: True)
+    """
     if not video.filename:
         raise HTTPException(status_code=400, detail="No video file provided")
     
     video_path = save_upload_file(video)
     
     try:
-        result = run_analysis(video_path)
+        result = run_analysis(video_path, include_llm=use_llm)
         return JSONResponse(content=result)
     finally:
         if background_tasks:
@@ -217,8 +292,8 @@ async def analyze_with_heatmap(video: UploadFile = File(...), background_tasks: 
         if len(frames) == 0:
             raise HTTPException(status_code=400, detail="Could not extract frames")
         
-        # Run standard analysis
-        result = run_analysis(video_path)
+        # Run standard analysis with LLM
+        result = run_analysis(video_path, include_llm=True)
         
         # Generate heatmaps for sample frames
         heatmaps = []
@@ -257,7 +332,7 @@ async def analyze_adversarial(video: UploadFile = File(...), background_tasks: B
             raise HTTPException(status_code=400, detail="Could not extract frames")
         
         # Run standard analysis
-        result = run_analysis(video_path)
+        result = run_analysis(video_path, include_llm=True)
         
         # Run robustness testing
         def analyze_function(test_frames):
@@ -284,11 +359,16 @@ async def analyze_educational(video: UploadFile = File(...), background_tasks: B
     video_path = save_upload_file(video)
     
     try:
-        result = run_analysis(video_path)
+        result = run_analysis(video_path, include_llm=True)
         
         # Add educational content
         educational = generate_educational_content(result)
         result["educational"] = educational
+        
+        # Generate LLM explanation if available
+        if LLM_AVAILABLE and groq_analyzer and groq_analyzer.enabled:
+            explanation = groq_analyzer.generate_explanation(result)
+            result["llm_explanation"] = explanation
         
         return JSONResponse(content=result)
     finally:
@@ -318,10 +398,10 @@ async def create_batch_job(videos: List[UploadFile] = File(...)):
     # Create job
     batch_processor.create_job(job_id, file_paths)
     
-    # Start processing in background
+    # Start processing in background (without LLM for speed)
     def process_job():
         def analyze_func(video_path):
-            return run_analysis(Path(video_path))
+            return run_analysis(Path(video_path), include_llm=False)
         batch_processor.start_processing(job_id, analyze_func)
     
     import threading
@@ -360,8 +440,8 @@ async def compare_videos(
     path2 = save_upload_file(video2)
     
     try:
-        result1 = run_analysis(path1)
-        result2 = run_analysis(path2)
+        result1 = run_analysis(path1, include_llm=True)
+        result2 = run_analysis(path2, include_llm=True)
         
         # Calculate comparison
         score_diff = abs(result1["trust_score"] - result2["trust_score"])
@@ -399,7 +479,7 @@ async def generate_report_endpoint(video: UploadFile = File(...), background_tas
     video_path = save_upload_file(video)
     
     try:
-        result = run_analysis(video_path)
+        result = run_analysis(video_path, include_llm=True)
         
         # Generate report
         report_id = str(uuid.uuid4())
@@ -418,7 +498,8 @@ async def generate_report_endpoint(video: UploadFile = File(...), background_tas
         return JSONResponse(content={
             "report_id": report_id,
             "report_url": f"/api/report/download/{report_id}",
-            "verification_hash": verification_hash
+            "verification_hash": verification_hash,
+            "analysis": result
         })
     finally:
         if background_tasks:

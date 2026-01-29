@@ -28,6 +28,7 @@ EXPOSE 7860
 # Environment variables
 ENV PORT=7860
 ENV PYTHONUNBUFFERED=1
+# GROQ_API_KEY should be set as a Hugging Face Space secret
 
 # Run the application
 CMD ["python", "main.py"]

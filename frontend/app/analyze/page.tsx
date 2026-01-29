@@ -271,6 +271,102 @@ function AnalyzeContent() {
                                 </div>
                             )}
 
+                            {/* LLM Analysis */}
+                            {result.llm_analysis && result.llm_analysis.enabled && (
+                                <div style={{
+                                    padding: 32,
+                                    borderRadius: 16,
+                                    border: '1px solid rgba(139,92,246,0.3)',
+                                    backgroundColor: 'rgba(139,92,246,0.1)',
+                                    marginBottom: 24
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                                        <div style={{
+                                            padding: '4px 12px',
+                                            borderRadius: 50,
+                                            backgroundColor: 'rgba(139,92,246,0.2)',
+                                            border: '1px solid rgba(139,92,246,0.3)',
+                                            fontSize: 12,
+                                            color: '#a78bfa'
+                                        }}>
+                                            🦙 Llama 3.2 Vision
+                                        </div>
+                                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>AI-Powered Analysis</span>
+                                    </div>
+
+                                    {result.llm_analysis.parsed && (
+                                        <div style={{ marginBottom: 16 }}>
+                                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                                                <span style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: 4,
+                                                    fontSize: 12,
+                                                    backgroundColor: result.llm_analysis.parsed.verdict === 'authentic' ? 'rgba(34,197,94,0.2)' :
+                                                        result.llm_analysis.parsed.verdict === 'manipulated' ? 'rgba(239,68,68,0.2)' : 'rgba(234,179,8,0.2)',
+                                                    color: result.llm_analysis.parsed.verdict === 'authentic' ? '#22c55e' :
+                                                        result.llm_analysis.parsed.verdict === 'manipulated' ? '#ef4444' : '#eab308'
+                                                }}>
+                                                    LLM Verdict: {result.llm_analysis.parsed.verdict?.toUpperCase()}
+                                                </span>
+                                                <span style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: 4,
+                                                    fontSize: 12,
+                                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                                    color: 'rgba(255,255,255,0.6)'
+                                                }}>
+                                                    Confidence: {result.llm_analysis.parsed.confidence?.toUpperCase()}
+                                                </span>
+                                            </div>
+
+                                            {result.llm_analysis.parsed.artifacts_detected?.length > 0 && (
+                                                <div style={{ marginBottom: 12 }}>
+                                                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Artifacts Detected: </span>
+                                                    <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
+                                                        {result.llm_analysis.parsed.artifacts_detected.join(', ')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {result.llm_analysis.analysis && (
+                                        <div style={{
+                                            padding: 16,
+                                            borderRadius: 12,
+                                            backgroundColor: 'rgba(0,0,0,0.3)',
+                                            border: '1px solid rgba(255,255,255,0.1)'
+                                        }}>
+                                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
+                                                {result.llm_analysis.analysis}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <p style={{ marginTop: 12, fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
+                                        {result.llm_analysis.frames_analyzed} frames analyzed by {result.llm_analysis.model}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* LLM Explanation (Educational Mode) */}
+                            {result.llm_explanation && (
+                                <div style={{
+                                    padding: 24,
+                                    borderRadius: 16,
+                                    border: '1px solid rgba(59,130,246,0.3)',
+                                    backgroundColor: 'rgba(59,130,246,0.1)',
+                                    marginBottom: 24
+                                }}>
+                                    <h4 style={{ fontSize: 14, fontWeight: 600, color: '#60a5fa', marginBottom: 12 }}>
+                                        🎓 AI Explanation
+                                    </h4>
+                                    <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15, lineHeight: 1.7, margin: 0 }}>
+                                        {result.llm_explanation}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Reset Button */}
                             <button
                                 onClick={() => { setFile(null); setResult(null); }}
