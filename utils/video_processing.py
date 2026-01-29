@@ -10,16 +10,24 @@ import tempfile
 
 def extract_frames(video_path, max_frames=30, fps=5):
     """
-    Extract frames from video file
+    Extract frames from video file or load single image
     
     Args:
-        video_path: Path to video file
+        video_path: Path to video file or image
         max_frames: Maximum number of frames to extract
         fps: Target frames per second
         
     Returns:
         List of numpy arrays (BGR format)
     """
+    # Check if it's an image
+    ext = os.path.splitext(video_path)[1].lower()
+    if ext in ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff']:
+        img = cv2.imread(video_path)
+        if img is not None:
+            return [img]
+        return []
+
     cap = cv2.VideoCapture(video_path)
     frames = []
     

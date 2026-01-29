@@ -280,10 +280,10 @@ async def analyze_video(
     use_llm: bool = True
 ):
     """
-    Standard video analysis with optional LLM enhancement
+    Standard analysis for video or image with optional LLM enhancement
     
     Args:
-        video: Video file to analyze
+        video: Video or image file to analyze
         use_llm: Whether to use LLM for enhanced analysis (default: True)
     """
     if not video.filename:

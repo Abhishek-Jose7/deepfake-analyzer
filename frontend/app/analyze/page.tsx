@@ -83,10 +83,10 @@ function AnalyzeContent() {
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: 48 }}>
                     <h1 style={{ fontSize: 40, fontWeight: 700, color: '#fff', marginBottom: 16 }}>
-                        Video Analysis
+                        Media Analysis
                     </h1>
                     <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 18 }}>
-                        Upload a video to analyze with multi-signal intelligence
+                        Upload a video or image to analyze with multi-signal intelligence
                     </p>
                 </div>
 
@@ -141,7 +141,7 @@ function AnalyzeContent() {
                 >
                     <input
                         type="file"
-                        accept="video/*"
+                        accept="image/*,video/*"
                         onChange={handleFileChange}
                         style={{
                             position: 'absolute',
@@ -154,10 +154,10 @@ function AnalyzeContent() {
                     />
                     <Upload style={{ width: 48, height: 48, margin: '0 auto 16px', color: dragOver ? '#fff' : 'rgba(255,255,255,0.4)' }} />
                     <p style={{ color: '#fff', fontWeight: 500, fontSize: 18, marginBottom: 8 }}>
-                        {file ? file.name : 'Drop video here or click to upload'}
+                        {file ? file.name : 'Drop media file here or click to upload'}
                     </p>
                     <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
-                        MP4, AVI, MOV, MKV, WEBM • Max 100MB
+                        Videos (MP4, AVI, MOV) or Images (JPG, PNG) • Max 100MB
                     </p>
                 </div>
 
@@ -193,7 +193,7 @@ function AnalyzeContent() {
                         ) : (
                             <>
                                 <Zap style={{ width: 20, height: 20 }} />
-                                Analyze Video
+                                Analyze Media
                             </>
                         )}
                     </motion.button>
