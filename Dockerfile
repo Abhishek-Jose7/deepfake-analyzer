@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p uploads reports
+RUN mkdir -p uploads reports checkpoints
 
 # Expose port (Hugging Face Spaces uses 7860)
 EXPOSE 7860

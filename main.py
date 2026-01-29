@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from signals.enhanced_vision import analyze_vision
 from signals.audio_signal import analyze_audio
 from signals.temporal_signal import analyze_temporal
+from model.inference import analyze_frames as analyze_frames_dl  # Deep Learning Model
 from trust_engine.score_fusion import calculate_trust_score, generate_report
 from trust_engine.heatmap_generator import generate_composite_heatmap, frame_to_base64
 from trust_engine.adversarial import test_robustness
@@ -70,8 +71,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="DeepTrust API",
-    description="Multi-signal deepfake detection with Llama 3.2 Vision AI",
-    version="2.1.0",
+    description="Multi-signal deepfake detection with Llama 3.2 Vision AI & EfficientNet",
+    version="2.2.0",
     lifespan=lifespan
 )
 
@@ -93,6 +94,7 @@ class AnalysisResult(BaseModel):
     confidence: str
     reason: str
     signals: dict
+    model_prediction: Optional[dict] = None  # Deep Learning Model Result
     llm_analysis: Optional[dict] = None
     quality_assessment: Optional[dict] = None
 
@@ -131,7 +133,7 @@ def cleanup_file(file_path: Path):
 
 def run_analysis(video_path: Path, include_llm: bool = True) -> dict:
     """
-    Core analysis pipeline with optional LLM enhancement
+    Core analysis pipeline with DL Model + Signal Analysis + LLM
     
     Args:
         video_path: Path to video file
@@ -150,10 +152,14 @@ def run_analysis(video_path: Path, include_llm: bool = True) -> dict:
             "confidence": "none",
             "reason": "Could not extract frames from video",
             "signals": {},
+            "model_prediction": None,
             "llm_analysis": None
         }
     
-    # Run enhanced signal analysis
+    # 1. Deep Learning Model Analysis (EfficientNet)
+    dl_result = analyze_frames_dl(frames)
+    
+    # 2. Enhanced Signal Analysis
     vision_result = analyze_vision(frames)
     audio_result = analyze_audio(audio_path) if audio_path else {"score": 0.5, "confidence": 0.0}
     temporal_result = analyze_temporal(frames)
@@ -164,19 +170,33 @@ def run_analysis(video_path: Path, include_llm: bool = True) -> dict:
         "temporal": temporal_result
     }
     
-    # Calculate trust score
+    # 3. Calculate Base Trust Score (Signal Fusion)
     trust_score, quality_assessment = calculate_trust_score(signals)
+    
+    # 4. Integrate Deep Learning Model Score
+    # We weight the DL model heavily if it's confident
+    if dl_result["success"]:
+        dl_score = dl_result["score"]  # Probability of being REAL
+        dl_conf = dl_result["confidence"]
+        
+        # Weighted fusion: 40% Signals, 60% DL Model (if model loaded)
+        if dl_result.get("model_loaded", False):
+            trust_score = (trust_score * 0.4) + (dl_score * 0.6)
+        else:
+            # If model not loaded/pretrained only, trust signals more
+            trust_score = (trust_score * 0.7) + (dl_score * 0.3)
     
     # Generate basic report
     report = generate_report(trust_score, signals, quality_assessment)
     
-    # LLM Analysis (if available)
+    # 5. LLM Analysis (Llama 3.2 Vision)
     llm_analysis = None
     if include_llm and LLM_AVAILABLE and groq_analyzer and groq_analyzer.enabled:
         signal_scores = {
             "vision": vision_result.get("score", 0.5),
             "audio": audio_result.get("score", 0.5),
-            "temporal": temporal_result.get("score", 0.5)
+            "temporal": temporal_result.get("score", 0.5),
+            "model_probability": dl_result.get("score", 0.5) if dl_result["success"] else 0.5
         }
         llm_analysis = groq_analyzer.analyze_frames(frames, signal_scores)
         
@@ -186,12 +206,14 @@ def run_analysis(video_path: Path, include_llm: bool = True) -> dict:
             llm_confidence = parsed.get("confidence", "medium")
             llm_verdict = parsed.get("verdict", "uncertain")
             
-            # If LLM has high confidence, weight its opinion
+            # If LLM has high confidence, use it to refine the score
             if llm_confidence == "high":
                 if llm_verdict == "authentic":
-                    trust_score = trust_score * 0.7 + 0.9 * 0.3  # Boost toward authentic
+                    # Boost towards 1.0, but respect existing evidence
+                    trust_score = (trust_score * 0.7) + 0.3
                 elif llm_verdict == "manipulated":
-                    trust_score = trust_score * 0.7 + 0.1 * 0.3  # Boost toward fake
+                    # Pull towards 0.0
+                    trust_score = (trust_score * 0.7)
             
             # Update reason with LLM insight
             if parsed.get("reasoning"):
@@ -201,14 +223,14 @@ def run_analysis(video_path: Path, include_llm: bool = True) -> dict:
     if audio_path and os.path.exists(audio_path):
         os.remove(audio_path)
     
-    # Update decision based on adjusted trust score
-    if trust_score >= 0.7:
+    # Final Decision Logic
+    if trust_score >= 0.8:
         decision = "Likely Real"
-    elif trust_score >= 0.55:
+    elif trust_score >= 0.6:
         decision = "Possibly Real"
-    elif trust_score >= 0.45:
+    elif trust_score >= 0.4:
         decision = "Ambiguous"
-    elif trust_score >= 0.3:
+    elif trust_score >= 0.2:
         decision = "Possibly Fake"
     else:
         decision = "Likely Fake"
@@ -219,6 +241,7 @@ def run_analysis(video_path: Path, include_llm: bool = True) -> dict:
         "confidence": report["confidence"],
         "reason": report["reason"],
         "signals": signals,
+        "model_prediction": dl_result,
         "llm_analysis": llm_analysis,
         "quality_assessment": quality_assessment
     }
