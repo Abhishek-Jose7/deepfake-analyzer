@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Trust System - AI-Powered Media Verification</title>
+    <meta name="description" content="Advanced deepfake detection system using multi-signal analysis with quality-aware trust scoring">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-gradient"></div>
+    
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="18" stroke="url(#gradient)" stroke-width="2"/>
+                    <path d="M20 10L20 30M10 20L30 20" stroke="url(#gradient)" stroke-width="2"/>
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#667eea"/>
+                            <stop offset="100%" stop-color="#764ba2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Deepfake Trust System</h1>
+            </div>
+            <p class="tagline">Multi-Signal Intelligence · Quality-Aware Analysis</p>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="upload-section" id="uploadSection">
+            <div class="upload-card">
+                <div class="upload-icon">
+                    <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                        <path d="M30 10L30 40M30 10L20 20M30 10L40 20" stroke="url(#gradient2)" stroke-width="3" stroke-linecap="round"/>
+                        <path d="M10 40L10 45C10 47.7614 12.2386 50 15 50L45 50C47.7614 50 50 47.7614 50 45L50 40" stroke="url(#gradient2)" stroke-width="3" stroke-linecap="round"/>
+                        <defs>
+                            <linearGradient id="gradient2" x1="0" y1="0" x2="60" y2="60">
+                                <stop offset="0%" stop-color="#667eea"/>
+                                <stop offset="100%" stop-color="#764ba2"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h2>Upload Video for Analysis</h2>
+                <p class="upload-description">Our system analyzes vision, audio, and temporal signals to detect deepfakes</p>
+                
+                <input type="file" id="videoInput" accept="video/mp4,video/avi,video/mov,video/mkv,video/webm" hidden>
+                <button class="upload-btn" id="uploadBtn">
+                    <span>Choose Video File</span>
+                </button>
+                
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <span id="fileName"></span>
+                    <button class="analyze-btn" id="analyzeBtn">Analyze Video</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress Section -->
+        <section class="progress-section" id="progressSection" style="display: none;">
+            <div class="progress-card">
+                <h3>Analyzing Video...</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p class="progress-text" id="progressText">Extracting frames...</p>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <div class="results-card">
+                <div class="trust-verdict" id="trustVerdict">
+                    <div class="verdict-icon" id="verdictIcon"></div>
+                    <h2 id="verdictText">Real</h2>
+                    <div class="trust-score-display">
+                        <span class="score-label">Trust Score</span>
+                        <span class="score-value" id="trustScoreValue">0.85</span>
+                    </div>
+                    <p class="verdict-reason" id="verdictReason"></p>
+                </div>
+
+                <!-- Signal Bars -->
+                <div class="signals-grid">
+                    <div class="signal-category">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
+                                <circle cx="10" cy="10" r="3" fill="currentColor"/>
+                            </svg>
+                            Vision Analysis
+                        </h3>
+                        <div class="signal-bar">
+                            <div class="signal-fill vision-fill" id="visionFill"></div>
+                            <span class="signal-value" id="visionValue">0.00</span>
+                        </div>
+                        <div class="signal-details">
+                            <span>Artifact Detection: <strong id="artifactScore">0.00</strong></span>
+                            <span>Edge Consistency: <strong id="edgeScore">0.00</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="signal-category">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 10Q3 5, 10 5Q17 5, 17 10Q17 15, 10 15Q3 15, 3 10" stroke="currentColor" stroke-width="2" fill="none"/>
+                            </svg>
+                            Audio Analysis
+                        </h3>
+                        <div class="signal-bar">
+                            <div class="signal-fill audio-fill" id="audioFill"></div>
+                            <span class="signal-value" id="audioValue">0.00</span>
+                        </div>
+                        <div class="signal-details">
+                            <span>Spectral Flatness: <strong id="flatnessScore">0.00</strong></span>
+                            <span>Spectral Rolloff: <strong id="rolloffScore">0.00</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="signal-category">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M2 10L6 6L10 14L14 4L18 10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+                            </svg>
+                            Temporal Analysis
+                        </h3>
+                        <div class="signal-bar">
+                            <div class="signal-fill temporal-fill" id="temporalFill"></div>
+                            <span class="signal-value" id="temporalValue">0.00</span>
+                        </div>
+                        <div class="signal-details">
+                            <span>Consistency: <strong id="consistencyScore">0.00</strong></span>
+                            <span>Variance: <strong id="varianceScore">0.00</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="signal-category">
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <path d="M7 10L9 12L13 8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+                            </svg>
+                            Quality Assessment
+                        </h3>
+                        <div class="signal-bar">
+                            <div class="signal-fill quality-fill" id="qualityFill"></div>
+                            <span class="signal-value" id="qualityValue">0.00</span>
+                        </div>
+                        <div class="signal-details">
+                            <span>Compression: <strong id="compressionScore">0.00</strong></span>
+                            <span>Resolution: <strong id="resolutionScore">0.00</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metadata -->
+                <div class="metadata-section">
+                    <h3>Video Metadata</h3>
+                    <div class="metadata-grid">
+                        <div class="metadata-item">
+                            <span class="metadata-label">Filename</span>
+                            <span class="metadata-value" id="metaFilename">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Duration</span>
+                            <span class="metadata-value" id="metaDuration">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Resolution</span>
+                            <span class="metadata-value" id="metaResolution">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Frames Analyzed</span>
+                            <span class="metadata-value" id="metaFrames">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="new-analysis-btn" id="newAnalysisBtn">Analyze Another Video</button>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Powered by Multi-Signal Intelligence | Quality-Aware Trust Scoring</p>
+            <p class="notice">"Our system degrades confidence instead of hallucinating certainty."</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
