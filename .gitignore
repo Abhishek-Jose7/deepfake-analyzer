@@ -21,5 +21,14 @@ reports/
 .DS_Store
 Thumbs.db
 
+
 # Logs
 *.log
+
+# Large Data & Models
+dataset/
+dataset_ff/
+checkpoints/
+__pycache__/
+*.pth
+*.pt

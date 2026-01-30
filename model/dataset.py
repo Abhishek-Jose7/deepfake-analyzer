@@ -11,12 +11,52 @@ from pathlib import Path
 from typing import Optional, Tuple, List, Callable, Dict
 import torch
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
+from PIL import Image
 
 try:
     from torchvision import transforms
     TORCHVISION_AVAILABLE = True
 except ImportError:
     TORCHVISION_AVAILABLE = False
+
+
+
+class ImageDataset(Dataset):
+    def __init__(self, root_dir, split, image_size):
+        self.samples = []
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+        ])
+
+        split_dir = Path(root_dir) / split
+
+        for label_name, label in [("real", 0), ("fake", 1)]:
+            class_dir = split_dir / label_name
+            if not class_dir.exists():
+                continue
+
+            for img in class_dir.iterdir():
+                if img.suffix.lower() in [".jpg", ".jpeg", ".png", ".bmp", ".webp"]:
+                    self.samples.append({
+                        "path": str(img),
+                        "label": label
+                    })
+
+        if len(self.samples) == 0:
+            raise RuntimeError(
+                f"No images found in {split_dir}. "
+                "Expected structure: split/real and split/fake"
+            )
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+        image = Image.open(sample["path"]).convert("RGB")
+        image = self.transform(image)
+        return image, sample["label"]
 
 
 class VideoFrameDataset(Dataset):
@@ -355,27 +395,57 @@ def create_dataloaders(
     Returns:
         train_loader, val_loader, test_loader (optional)
     """
-    DatasetClass = FaceForensicsDataset if dataset_type == "faceforensics" else VideoFrameDataset
+
+    if dataset_type == "faceforensics":
+        DatasetClass = FaceForensicsDataset
+    elif dataset_type == "generic":
+        DatasetClass = ImageDataset
+    else:
+        # For backward compatibility or explicit video type
+        DatasetClass = VideoFrameDataset
+
+    # Instantiate datasets based on type
+    if dataset_type == "generic":
+        # ImageDataset expects an integer size usually, but let's check what we passed.
+        # The user code snippet uses `image_size=frame_size`. 
+        # In this function frame_size is a Tuple[int, int].
+        # We should extract the dimension.
+        size_int = frame_size[0] if isinstance(frame_size, tuple) else frame_size
+        
+        train_dataset = DatasetClass(
+            root_dir=dataset_path,
+            split="train",
+            image_size=size_int
+        )
+        val_dataset = DatasetClass(
+            root_dir=dataset_path,
+            split="val",
+            image_size=size_int
+        )
+    else:
+        train_dataset = DatasetClass(
+            root_dir=dataset_path,
+            split="train",
+            frames_per_video=frames_per_video,
+            frame_size=frame_size
+        )
+        val_dataset = DatasetClass(
+            root_dir=dataset_path,
+            split="val",
+            frames_per_video=frames_per_video,
+            frame_size=frame_size
+        )
     
-    train_dataset = DatasetClass(
-        root_dir=dataset_path,
-        split="train",
-        frames_per_video=frames_per_video,
-        frame_size=frame_size
-    )
-    
-    val_dataset = DatasetClass(
-        root_dir=dataset_path,
-        split="val",
-        frames_per_video=frames_per_video,
-        frame_size=frame_size
-    )
+    # Validation for empty dataset
+    if len(train_dataset) == 0:
+        raise RuntimeError("Training dataset is empty. Check dataset loader.")
     
     # Weighted sampler for imbalanced data
     labels = [s["label"] for s in train_dataset.samples]
     class_counts = [labels.count(0), labels.count(1)]
-    weights = [1.0 / class_counts[l] for l in labels]
-    sampler = WeightedRandomSampler(weights, len(weights))
+    weights = [1.0 / (c + 1e-5) for c in class_counts] # Avoid division by zero
+    sample_weights = [weights[l] for l in labels]
+    sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
     
     train_loader = DataLoader(
         train_dataset,
@@ -397,12 +467,21 @@ def create_dataloaders(
     test_loader = None
     test_dir = Path(dataset_path) / "test"
     if test_dir.exists():
-        test_dataset = DatasetClass(
-            root_dir=dataset_path,
-            split="test",
-            frames_per_video=frames_per_video,
-            frame_size=frame_size
-        )
+        if dataset_type == "generic":
+            size_int = frame_size[0] if isinstance(frame_size, tuple) else frame_size
+            test_dataset = DatasetClass(
+                root_dir=dataset_path,
+                split="test",
+                image_size=size_int
+            )
+        else:
+            test_dataset = DatasetClass(
+                root_dir=dataset_path,
+                split="test",
+                frames_per_video=frames_per_video,
+                frame_size=frame_size
+            )
+            
         test_loader = DataLoader(
             test_dataset,
             batch_size=batch_size,
