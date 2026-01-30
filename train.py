@@ -67,9 +67,10 @@ class Trainer:
         )
         
         # Learning rate scheduler
+        # Learning rate scheduler
         self.scheduler = OneCycleLR(
             self.optimizer,
-            max_lr=learning_rate * 10,
+            max_lr=learning_rate,  # FIXED: Removed * 10 multiplier to prevent divergence
             epochs=epochs,
             steps_per_epoch=len(train_loader)
         )
@@ -105,7 +106,7 @@ class Trainer:
             self.optimizer.zero_grad()
             
             if self.use_amp:
-                with autocast():
+                with torch.amp.autocast('cuda'):
                     outputs = self.model(frames)
                     loss = self.criterion(outputs, labels)
                 
@@ -153,7 +154,7 @@ class Trainer:
             labels = labels.to(self.device)
             
             if self.use_amp:
-                with autocast():
+                with torch.amp.autocast('cuda'):
                     outputs = self.model(frames)
                     loss = self.criterion(outputs, labels)
             else:
