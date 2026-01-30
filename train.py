@@ -67,7 +67,6 @@ class Trainer:
         )
         
         # Learning rate scheduler
-        # Learning rate scheduler
         self.scheduler = OneCycleLR(
             self.optimizer,
             max_lr=learning_rate,  # FIXED: Removed * 10 multiplier to prevent divergence
